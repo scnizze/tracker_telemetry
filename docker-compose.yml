@@ -1,0 +1,33 @@
+# docker-compose.yml defines a multi-container application declaratively:
+# what services exist, how they're built/configured, and how they talk
+# to each other -- so instead of remembering long `docker run` commands
+# for each piece, you run one command: `docker compose up`.
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # "db" here is not an IP address -- Docker Compose gives every
+      # service a DNS name matching its service name, resolvable only
+      # by other containers on the same compose network.
+      DATABASE_URL: postgresql://telemetry:telemetry@db:5432/telemetry
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: telemetry
+      POSTGRES_PASSWORD: telemetry
+      POSTGRES_DB: telemetry
+    volumes:
+      # Named volume: Postgres's data directory is stored OUTSIDE any
+      # container's writable layer, managed by Docker itself. Containers
+      # come and go; this volume persists until you explicitly remove it.
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:
