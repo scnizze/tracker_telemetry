@@ -1,0 +1,38 @@
+name: CI
+
+# Trigger conditions: WHEN this pipeline runs.
+# - push to main: catches direct pushes (e.g. after merging a PR)
+# - pull_request targeting main: runs on every PR, so checks show up as
+#   pass/fail right on the PR before anyone merges it
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -m pytest -v 
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Build the Docker image
+        run: docker build -t tracker-telemetry .
