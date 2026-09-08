@@ -19,23 +19,18 @@ Or via docker-compose (API + Postgres together):
 
 Then open http://127.0.0.1:8000/docs for the interactive API docs.
 """
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from typing import List
 
 from app.database import init_db, engine, telemetry
 from app.models import TelemetryIn, TelemetryOut
 
+app = FastAPI(title="Tracker Telemetry API", version="0.2.0")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Runs once before the app starts accepting requests.
+
+@app.on_event("startup")
+def on_startup():
     init_db()
-    yield
-    # (nothing to clean up on shutdown yet)
-
-
-app = FastAPI(title="Tracker Telemetry API", version="0.2.0", lifespan=lifespan)
 
 
 @app.get("/health")
