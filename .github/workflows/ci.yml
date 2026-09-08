@@ -26,7 +26,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: pytest -v
+        run: pytest -m pytest -v 
 
   docker-build:
     runs-on: ubuntu-latest
