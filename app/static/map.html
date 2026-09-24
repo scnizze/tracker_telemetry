@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tracker map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; }
+  #map { height: 100%; }
+  #panel {
+    position: absolute; top: 10px; left: 50px; z-index: 1000;
+    background: white; padding: 8px 12px; border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3); font-size: 14px;
+  }
+  #status { color: #666; margin-left: 8px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  Device:
+  <select id="device"></select>
+  <span id="status">loading…</span>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// A plain page, no build step: it just calls the JSON endpoints that
+// app/main.py exposes (/sbd/devices, /sbd/positions/{imei}) and draws
+// what comes back. Re-polls every 30s so it looks "live" as new SBD
+// emails get decoded, without you needing to refresh the tab.
+
+const map = L.map('map').setView([0, 0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19,
+}).addTo(map);
+
+let polyline = L.polyline([], { color: '#2563eb' }).addTo(map);
+let markers = L.layerGroup().addTo(map);
+const deviceSelect = document.getElementById('device');
+const statusEl = document.getElementById('status');
+let currentImei = null;
+let knownDevices = [];
+
+async function loadDevices() {
+  const res = await fetch('/sbd/devices');
+  const devices = await res.json();
+  if (JSON.stringify(devices) === JSON.stringify(knownDevices)) return;
+  knownDevices = devices;
+  deviceSelect.innerHTML = '';
+  for (const imei of devices) {
+    const opt = document.createElement('option');
+    opt.value = imei;
+    opt.textContent = imei;
+    deviceSelect.appendChild(opt);
+  }
+  if (!currentImei && devices.length) {
+    currentImei = devices[0];
+    deviceSelect.value = currentImei;
+  }
+}
+
+async function loadPositions() {
+  if (!currentImei) {
+    statusEl.textContent = 'no devices decoded yet';
+    return;
+  }
+  const res = await fetch(`/sbd/positions/${currentImei}?limit=200`);
+  const positions = await res.json();
+  const latlngs = positions
+    .filter(p => p.lat !== null && p.lon !== null)
+    .map(p => [p.lat, p.lon]);
+
+  polyline.setLatLngs(latlngs);
+  markers.clearLayers();
+  latlngs.forEach((ll, i) => {
+    const isNewest = i === latlngs.length - 1;
+    L.circleMarker(ll, {
+      radius: isNewest ? 7 : 4,
+      color: isNewest ? '#dc2626' : '#2563eb',
+      fillOpacity: 0.9,
+    })
+      .bindPopup(positions[i].ts ? `${positions[i].ts}` : '(no timestamp)')
+      .addTo(markers);
+  });
+
+  if (latlngs.length) {
+    map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+    statusEl.textContent = `${latlngs.length} fix(es), last updated ${new Date().toLocaleTimeString()}`;
+  } else {
+    statusEl.textContent = `no positions for ${currentImei} yet`;
+  }
+}
+
+deviceSelect.addEventListener('change', () => {
+  currentImei = deviceSelect.value;
+  loadPositions();
+});
+
+async function tick() {
+  try {
+    await loadDevices();
+    await loadPositions();
+  } catch (e) {
+    statusEl.textContent = 'error talking to the API: ' + e;
+  }
+}
+
+tick();
+setInterval(tick, 30000);
+</script>
+</body>
+</html>

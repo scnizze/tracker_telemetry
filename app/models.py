@@ -23,3 +23,25 @@ class TelemetryIn(BaseModel):
 class TelemetryOut(TelemetryIn):
     id: int
     received_at: datetime
+
+
+class PositionOut(BaseModel):
+    """One GPS fix, decoded out of an SBD frame's history TLV. This is
+    what the map draws -- one dot (or one point in a path) per row."""
+    lat: float
+    lon: float
+    ts: Optional[datetime] = None
+
+
+class SbdMessageOut(BaseModel):
+    """One decoded SBD uplink (one .sbd email attachment)."""
+    id: int
+    imei: Optional[str] = None
+    momsn: Optional[int] = None
+    filename: Optional[str] = None
+    msg_type: Optional[int] = None
+    msg_type_name: Optional[str] = None
+    battery_v: Optional[float] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    received_at: datetime
