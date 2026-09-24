@@ -25,6 +25,7 @@ Or via docker-compose (API + Postgres together):
 Then open http://127.0.0.1:8000/docs for the interactive API docs, or
 http://127.0.0.1:8000/map for the map.
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -32,6 +33,7 @@ from typing import List
 
 from app.database import init_db, engine, telemetry, sbd_messages, sbd_positions
 from app.models import TelemetryIn, TelemetryOut, PositionOut, SbdMessageOut
+
 
 app = FastAPI(title="Tracker Telemetry API", version="0.3.0")
 
@@ -41,9 +43,16 @@ app = FastAPI(title="Tracker Telemetry API", version="0.3.0")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
-@app.on_event("startup")
-def on_startup():
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs once before the app starts accepting requests.
     init_db()
+    yield
+    # (nothing to clean up on shutdown yet)
+
+
+app = FastAPI(title="Tracker Telemetry API", version="0.2.0", lifespan=lifespan)
 
 
 @app.get("/health")
